@@ -1,0 +1,80 @@
+---
+title: "PML_project_Dec2014"
+output: html_document
+---
+
+Wearable devices have become more and more popular these days for people to collect data about personal activity, especially to quantify how much of a particular activity they do. However, one thing that people rarely do is to quantify how well they do the activity. Here we have a dataset that contains data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The goal of this project is predict the manner in which they did the exercise, which is the "classe" variable in the dataset.I will first use the training data provided to build a model. Then I will use the model to make prediction of the "classe" variable for the records from the test data.
+
+## Load and clean up dataset
+The training data for this project are downloaded from here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+Upon downloading, the training data were read and cleaned up to remove record-identification variables that may not contribute to build the model.
+
+
+```{r}
+training <- read.csv("pml-training.csv",na.strings=c("NA",""))
+training <- training[,6:160]
+dim(training)
+```
+
+Then the training data were further cleaned up to remove near zero variables, and also variables that has "NA" values for more than 95% of the total records.
+
+```{r}
+library(caret)
+nzv <- nearZeroVar(training)
+ctraining <- training[,-nzv]
+usefulVar <- apply(!is.na(ctraining),2,sum)>19622*0.95-1
+ctraining <- ctraining[,usefulVar]
+dim(ctraining)
+```
+
+## Build a model for prediction from the training data
+### Split the data
+In order to be able to estimate the out of sample error, the training data was split into traindata and testdata. The traindata will be used to build the model, while the testdata will be used to estimate the out of sample error.
+
+```{r}
+set.seed(2014)
+inTrain <- createDataPartition(ctraining$classe,p=0.7,list=FALSE)
+traindata <- ctraining[inTrain,]
+testdata <- ctraining[-inTrain,]
+```
+
+### Model building
+To build the model, I am going to use the "random forest" method, and 5-fold cross-validation will be implemented.
+
+```{r,cache=TRUE}
+mod_rf <- train(classe~.,method="rf",trControl=trainControl(method="cv",number=5),data=traindata)
+mod_rf
+mod_rf$finalModel
+```
+
+The expected out of sample error is described in the summary of the final model.
+
+### Estimate the out of sample error on the testdata
+The testdata was then used to estimate the out of sample error.
+
+```{r}
+confusionMatrix(testdata$classe,predict(mod_rf,testdata))
+```
+
+## Make prediction
+Finally, I am going to use the model built to make prediction on the test data.
+
+The first thing to do is to load the test data, and clean it up the same way as what is done for the above training data.
+
+The test data is downloaded from here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r}
+testing <- read.csv("pml-testing.csv",na.strings=c("NA",""))
+testing <- testing[,6:160]
+ctesting <- testing[,-nzv]
+ctesting <- ctesting[,usefulVar]
+```
+
+Then the model built was used to make prediction on the test data.
+
+```{r}
+pred <- predict(mod_rf,ctesting)
+pred
+```
+
