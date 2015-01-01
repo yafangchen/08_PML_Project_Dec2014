@@ -40,25 +40,52 @@ testdata <- ctraining[-inTrain,]
 ```
 
 ### Model building
-To build the model, I am going to use the "random forest" method, and 5-fold cross-validation will be implemented.
+#### Classification Tree
+In the first approach, I am going to use the "classification tree (rpart)" method with a 5-fold cross-validation.
+
+```{r,cache=TRUE}
+mod_tree <- train(classe~.,method="rpart",trControl=trainControl(method="cv",number=5),data=traindata)
+mod_tree
+```
+The computation time using the classification tree method is `r mod_tree$times$everything[3]` seconds, and the in-sample accuracy is only `r mod_tree$results$Accuracy[1]`, which is close to random modeling. Therefore, I am NOT going to continue with this model.
+
+#### Random Forest
+In the second approach, I am going to use the "random forest" method, and 5-fold cross-validation will be implemented.
 
 ```{r,cache=TRUE}
 mod_rf <- train(classe~.,method="rf",trControl=trainControl(method="cv",number=5),data=traindata)
 mod_rf
 mod_rf$finalModel
 ```
+The computation time using the random forest method is `r mod_rf$times$everything[3]` seconds, and the accuracy is `r mod_rf$results$Accuracy[2]` with a in-sample error rate of 0.0028.
 
-The expected out of sample error is described in the summary of the final model.
-
-### Estimate the out of sample error on the testdata
-The testdata was then used to estimate the out of sample error.
+Next is to estimate the out-of-sample error rate by applying the model to the testdata.
 
 ```{r}
-confusionMatrix(testdata$classe,predict(mod_rf,testdata))
+cmrf <- confusionMatrix(testdata$classe,predict(mod_rf,testdata))
+cmrf
 ```
+As shown above, the estimated out-of-sample error rate using the random forest model is `r 1-cmrf$overall[1]`.
+
+#### Stohastic Gradient Boosting
+In the third approach, I am going to use the "gradient boosting" method, and implement a 5-fold cross-validation.
+
+```{r}
+mod_gbm <- train(classe~.,method="gbm",trControl=trainControl(method="cv",number=5),data=traindata, verbose=F)
+mod_gbm
+```
+The computation time using the random forest method is `r mod_gbm$times$everything[3]` seconds, and the accuracy is `r mod_gbm$results$Accuracy[9]`, which is a little bit lower than that of the random forest model.
+
+Next is to estimate the out-of-sample error rate by applying the "gbm" model to the testdata.
+
+```{r}
+cmgbm <- confusionMatrix(testdata$classe,predict(mod_gbm,testdata))
+cmgbm
+```
+As shown above, the estimated out-of-sample error rate using the gbm model is `r 1-cmgbm$overall[1]`.
 
 ## Make prediction
-Finally, I am going to use the model built to make prediction on the test data.
+Comparing the above three models built, the random forest model seems to be the best with the highest accuracy and the lowest out-of-sample error rate. Thus I am going to use the random forest model to make prediction on the test data with only 20 records.
 
 The first thing to do is to load the test data, and clean it up the same way as what is done for the above training data.
 
